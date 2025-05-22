@@ -1,3 +1,40 @@
+# Python virtual environment
+corigami-env/
+venv/
+env/
+
+# Data directories
+data/
+
+# Checkpoints and logs
+checkpoints/
+
+# Training scripts
+train_test.sh
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -8,9 +45,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -104,9 +139,6 @@ celerybeat.pid
 # Environments
 .env
 .venv
-env/
-venv/
-ENV/
 env.bak/
 venv.bak/
 

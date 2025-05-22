@@ -86,15 +86,26 @@ def init_training(args):
     # Assign seed
     pl.seed_everything(args.run_seed, workers=True)
     pl_module = TrainModule(args)
-    pl_trainer = pl.Trainer(strategy='ddp',
-                            accelerator="gpu", devices=args.trainer_num_gpu,
-                            gradient_clip_val=1,
-                            logger = all_loggers,
-                            callbacks = [early_stop_callback,
-                                         checkpoint_callback,
-                                         lr_monitor],
-                            max_epochs = args.trainer_max_epochs
-                            )
+
+    # Determine accelerator and strategy
+    if args.trainer_num_gpu == 0 or args.dataloader_ddp_disabled:
+        accelerator = "cpu"
+        strategy = "auto"
+        devices = 1
+    else:
+        accelerator = "gpu"
+        strategy = "ddp"
+        devices = args.trainer_num_gpu
+
+    pl_trainer = pl.Trainer(
+        strategy=strategy,
+        accelerator=accelerator,
+        devices=devices,
+        gradient_clip_val=1,
+        logger=all_loggers,
+        callbacks=[early_stop_callback, checkpoint_callback, lr_monitor],
+        max_epochs=args.trainer_max_epochs
+    )
     trainloader = pl_module.get_dataloader(args, 'train')
     valloader = pl_module.get_dataloader(args, 'val')
     testloader = pl_module.get_dataloader(args, 'test')
@@ -144,17 +155,16 @@ class TrainModule(pl.LightningModule):
         return loss
 
     # Collect epoch statistics
-    def training_epoch_end(self, step_outputs):
-        step_outputs = [out['loss'] for out in step_outputs]
+    def on_train_epoch_end(self):
+        step_outputs = [out['loss'] for out in self.trainer.callback_metrics]
         ret_metrics = self._shared_epoch_end(step_outputs)
-        metrics = {'train_loss' : ret_metrics['loss']
-                  }
+        metrics = {'train_loss' : ret_metrics['loss']}
         self.log_dict(metrics, prog_bar=True)
 
-    def validation_epoch_end(self, step_outputs):
+    def on_validation_epoch_end(self):
+        step_outputs = [out['loss'] for out in self.trainer.callback_metrics]
         ret_metrics = self._shared_epoch_end(step_outputs)
-        metrics = {'val_loss' : ret_metrics['loss']
-                  }
+        metrics = {'val_loss' : ret_metrics['loss']}
         self.log_dict(metrics, prog_bar=True)
 
     def _shared_epoch_end(self, step_outputs):
@@ -166,15 +176,20 @@ class TrainModule(pl.LightningModule):
                                      lr = 2e-4,
                                      weight_decay = 0)
 
-        import pl_bolts
-        scheduler = pl_bolts.optimizers.lr_scheduler.LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=10, max_epochs=self.args.trainer_max_epochs)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=10,  # First restart epoch
+            T_mult=2,  # Double the restart interval after each restart
+            eta_min=1e-6  # Minimum learning rate
+        )
+        
         scheduler_config = {
             'scheduler': scheduler,
             'interval': 'epoch',
             'frequency': 1,
             'monitor': 'val_loss',
             'strict': True,
-            'name': 'WarmupCosineAnnealing',
+            'name': 'CosineAnnealingWarmRestarts',
         }
         return {'optimizer' : optimizer, 'lr_scheduler' : scheduler_config}
 
@@ -210,7 +225,7 @@ class TrainModule(pl.LightningModule):
         batch_size = args.dataloader_batch_size
         num_workers = args.dataloader_num_workers
 
-        if not args.dataloader_ddp_disabled:
+        if not args.dataloader_ddp_disabled and args.trainer_num_gpu > 0:
             gpus = args.trainer_num_gpu
             batch_size = int(args.dataloader_batch_size / gpus)
             num_workers = int(args.dataloader_num_workers / gpus) 
@@ -219,7 +234,6 @@ class TrainModule(pl.LightningModule):
             dataset,
             shuffle=shuffle,
             batch_size=batch_size,
-
             num_workers=num_workers,
             pin_memory=True,
             prefetch_factor=1,

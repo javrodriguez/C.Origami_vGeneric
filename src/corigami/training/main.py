@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as callbacks
+import os
 
 import corigami.model.corigami_models as corigami_models
 from corigami.data import genome_dataset
@@ -75,6 +76,11 @@ def init_parser():
                         choices=[None, 'log'],
                         type=str_or_none,  # Use the custom type converter
                         help='Global normalization method for genomic features')
+
+  # Add argument for feature-specific normalization
+  parser.add_argument('--feature_norms', dest='feature_norms', default=None,
+                        type=str,
+                        help='Comma-separated list of feature:norm pairs (e.g., "ctcf:log,atac:None")')
 
   # Add small_test flag
   parser.add_argument('--small_test', dest='small_test', action='store_true',
@@ -213,23 +219,41 @@ class TrainModule(pl.LightningModule):
 
     def get_dataset(self, args, mode):
         celltype_root = f'{args.dataset_data_root}/{args.dataset_assembly}/{args.dataset_celltype}'
-        genomic_features = {'ctcf_log2fc' : {'file_name' : 'ctcf_log2fc.bw',
-                                             'norm' : None },
-                            'atac' : {'file_name' : 'atac.bw',
-                                             'norm' : 'log' }}
+        genomic_features_dir = f'{celltype_root}/genomic_features'
+        bw_files = [f for f in os.listdir(genomic_features_dir) if f.endswith('.bw')]
+
+        # Parse feature-specific normalizations if provided
+        feature_norms = {}
+        if args.feature_norms:
+            for pair in args.feature_norms.split(','):
+                feature, norm = pair.split(':')
+                if norm.lower() == 'none':
+                    norm = None
+                feature_norms[feature] = norm
+
+        genomic_features = {}
+        for bw_file in bw_files:
+            feature_name = bw_file.replace('.bw', '')
+            # Use feature-specific norm if provided, otherwise use global norm
+            norm = feature_norms.get(feature_name, args.genomic_features_norm)
+            genomic_features[feature_name] = {'file_name': bw_file, 'norm': norm}
+
         # If small_test is enabled, use only chr20 for all modes
         chromosomes = ['chr20'] if args.small_test else None
-        dataset = genome_dataset.GenomeDataset(celltype_root, 
-                                args.dataset_assembly,
-                                genomic_features, 
-                                mode = mode,
-                                include_sequence = True,
-                                include_genomic_features = True,
-                                chromosomes = chromosomes)
+
+        dataset = genome_dataset.GenomeDataset(celltype_root,
+                                             args.dataset_assembly,
+                                             genomic_features,
+                                             mode = mode,
+                                             include_sequence = True,
+                                             include_genomic_features = True,
+                                             chromosomes = chromosomes)
+
         # Record length for printing validation image
         if mode == 'val':
             self.val_length = len(dataset) / args.dataloader_batch_size
             print('Validation loader length:', self.val_length)
+
         return dataset
 
     def get_dataloader(self, args, mode):
@@ -260,8 +284,10 @@ class TrainModule(pl.LightningModule):
         return dataloader
 
     def get_model(self, args):
-        model_name =  args.model_type
-        num_genomic_features = 2
+        model_name = args.model_type
+        celltype_root = f'{args.dataset_data_root}/{args.dataset_assembly}/{args.dataset_celltype}'
+        genomic_features_dir = f'{celltype_root}/genomic_features'
+        num_genomic_features = len([f for f in os.listdir(genomic_features_dir) if f.endswith('.bw')])
         ModelClass = getattr(corigami_models, model_name)
         model = ModelClass(num_genomic_features, mid_hidden = 256)
         return model

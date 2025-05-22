@@ -13,7 +13,8 @@ class GenomeDataset(Dataset):
                        mode = 'train', 
                        include_sequence = True,
                        include_genomic_features = True,
-                       use_aug = True):
+                       use_aug = True,
+                       chromosomes = None):
         self.data_root = celltype_root
         self.include_sequence = include_sequence
         self.include_genomic_features = include_genomic_features
@@ -24,17 +25,20 @@ class GenomeDataset(Dataset):
         if mode != 'train': self.use_aug = False # Set augmentation
 
         # Assign train/val/test chromosomes
-        self.chr_names = self.get_chr_names(genome_assembly)
-        if mode == 'train':
-            self.chr_names.remove('chr10')
-            self.chr_names.remove('chr15')
-            self.chr_names.remove('chrX') # chrX removed for consistency
-        elif mode == 'val':
-            self.chr_names = ['chr10']
-        elif mode == 'test':
-            self.chr_names = ['chr15']
+        if chromosomes is not None:
+            self.chr_names = chromosomes
         else:
-            raise Exception(f'Unknown mode {mode}')
+            self.chr_names = self.get_chr_names(genome_assembly)
+            if mode == 'train':
+                self.chr_names.remove('chr10')
+                self.chr_names.remove('chr15')
+                self.chr_names.remove('chrX') # chrX removed for consistency
+            elif mode == 'val':
+                self.chr_names = ['chr10']
+            elif mode == 'test':
+                self.chr_names = ['chr15']
+            else:
+                raise Exception(f'Unknown mode {mode}')
 
         # Load genomewide features
         self.genomic_features = self.load_features(f'{celltype_root}/genomic_features', feat_dicts)

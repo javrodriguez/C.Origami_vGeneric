@@ -165,3 +165,6 @@ dmypy.json
 outputs
 *.gz
 *.DS_Store
+
+# Project specific
+src_generic/

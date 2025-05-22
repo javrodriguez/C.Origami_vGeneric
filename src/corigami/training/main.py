@@ -13,6 +13,11 @@ def main():
     init_training(args)
 
 def init_parser():
+  def str_or_none(value):
+    if value.lower() == 'none':
+      return None
+    return value
+
   parser = argparse.ArgumentParser(description='C.Origami Training Module.')
 
   # Data and Run Directories
@@ -47,6 +52,12 @@ def init_parser():
   parser.add_argument('--num-gpu', dest='trainer_num_gpu', default=4,
                         type=int,
                         help='Number of GPUs to use')
+  parser.add_argument('--limit_train_batches', dest='trainer_limit_train_batches', default=None,
+                        type=int,
+                        help='Limit number of training batches per epoch')
+  parser.add_argument('--limit_val_batches', dest='trainer_limit_val_batches', default=None,
+                        type=int,
+                        help='Limit number of validation batches per epoch')
 
   # Dataloader Parameters
   parser.add_argument('--batch-size', dest='dataloader_batch_size', default=8, 
@@ -59,6 +70,15 @@ def init_parser():
                         type=int,
                         help='Dataloader workers')
 
+  # New argument for global genomic feature normalization
+  parser.add_argument('--genomic_features_norm', dest='genomic_features_norm', default=None,
+                        choices=[None, 'log'],
+                        type=str_or_none,  # Use the custom type converter
+                        help='Global normalization method for genomic features')
+
+  # Add small_test flag
+  parser.add_argument('--small_test', dest='small_test', action='store_true',
+                        help='Use only a small subset of chromosomes for testing')
 
   args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
   return args
@@ -104,7 +124,9 @@ def init_training(args):
         gradient_clip_val=1,
         logger=all_loggers,
         callbacks=[early_stop_callback, checkpoint_callback, lr_monitor],
-        max_epochs=args.trainer_max_epochs
+        max_epochs=args.trainer_max_epochs,
+        limit_train_batches=args.trainer_limit_train_batches,
+        limit_val_batches=args.trainer_limit_val_batches
     )
     trainloader = pl_module.get_dataloader(args, 'train')
     valloader = pl_module.get_dataloader(args, 'val')
@@ -152,24 +174,20 @@ class TrainModule(pl.LightningModule):
         outputs = self(inputs)
         criterion = torch.nn.MSELoss()
         loss = criterion(outputs, mat)
-        return loss
+        return loss  # Return just the loss value
 
     # Collect epoch statistics
     def on_train_epoch_end(self):
-        step_outputs = [out['loss'] for out in self.trainer.callback_metrics]
-        ret_metrics = self._shared_epoch_end(step_outputs)
-        metrics = {'train_loss' : ret_metrics['loss']}
+        # Get the training loss from the logged metrics
+        train_loss = self.trainer.callback_metrics.get('train_step_loss', torch.tensor(0.0))
+        metrics = {'train_loss': train_loss}
         self.log_dict(metrics, prog_bar=True)
 
     def on_validation_epoch_end(self):
-        step_outputs = [out['loss'] for out in self.trainer.callback_metrics]
-        ret_metrics = self._shared_epoch_end(step_outputs)
-        metrics = {'val_loss' : ret_metrics['loss']}
+        # Get the validation loss from the logged metrics
+        val_loss = self.trainer.callback_metrics.get('val_loss', torch.tensor(0.0))
+        metrics = {'val_loss': val_loss}
         self.log_dict(metrics, prog_bar=True)
-
-    def _shared_epoch_end(self, step_outputs):
-        loss = torch.tensor(step_outputs).mean()
-        return {'loss' : loss}
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), 
@@ -194,24 +212,24 @@ class TrainModule(pl.LightningModule):
         return {'optimizer' : optimizer, 'lr_scheduler' : scheduler_config}
 
     def get_dataset(self, args, mode):
-
         celltype_root = f'{args.dataset_data_root}/{args.dataset_assembly}/{args.dataset_celltype}'
         genomic_features = {'ctcf_log2fc' : {'file_name' : 'ctcf_log2fc.bw',
                                              'norm' : None },
                             'atac' : {'file_name' : 'atac.bw',
                                              'norm' : 'log' }}
+        # If small_test is enabled, use only chr20 for all modes
+        chromosomes = ['chr20'] if args.small_test else None
         dataset = genome_dataset.GenomeDataset(celltype_root, 
                                 args.dataset_assembly,
                                 genomic_features, 
                                 mode = mode,
                                 include_sequence = True,
-                                include_genomic_features = True)
-
+                                include_genomic_features = True,
+                                chromosomes = chromosomes)
         # Record length for printing validation image
         if mode == 'val':
             self.val_length = len(dataset) / args.dataloader_batch_size
             print('Validation loader length:', self.val_length)
-
         return dataset
 
     def get_dataloader(self, args, mode):

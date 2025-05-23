@@ -38,10 +38,11 @@ class ConvModel(nn.Module):
 
 class ConvTransModel(ConvModel):
     
-    def __init__(self, num_genomic_features, mid_hidden = 256, record_attn = False):
+    def __init__(self, num_genomic_features, mid_hidden = 256, record_attn = False, use_sequence = True):
         super(ConvTransModel, self).__init__(num_genomic_features)
         print('Initializing ConvTransModel')
-        self.encoder = blocks.EncoderSplit(num_genomic_features, output_size = mid_hidden, num_blocks = 12)
+        self.use_sequence = use_sequence
+        self.encoder = blocks.EncoderSplit(num_genomic_features, output_size = mid_hidden, num_blocks = 12, use_sequence = use_sequence)
         self.attn = blocks.AttnModule(hidden = mid_hidden, record_attn = record_attn)
         self.decoder = blocks.Decoder(mid_hidden * 2)
         self.record_attn = record_attn

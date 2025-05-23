@@ -34,7 +34,7 @@ def init_parser():
   parser.add_argument('--assembly', dest='dataset_assembly', default='hg38',
                         help='Genome assembly for training data')
   parser.add_argument('--celltype', dest='dataset_celltype', default='imr90',
-                        help='Sample cell type for prediction, used for output separation')
+                        help='Comma-separated list of cell types (e.g., "BALL-MCG001,BALL-MCG003")')
 
   # Model parameters
   parser.add_argument('--model-type', dest='model_type', default='ConvTransModel',
@@ -94,6 +94,15 @@ def init_parser():
   return args
 
 def init_training(args):
+    # Validate cell types first
+    assembly_root = f"{args.dataset_data_root}/{args.dataset_assembly}"
+    dataset_ids = [id.strip() for id in args.dataset_celltype.split(',')]
+    
+    # Validate all cell types exist
+    for dataset_id in dataset_ids:
+        celltype_root = f"{assembly_root}/{dataset_id}"
+        if not os.path.exists(celltype_root):
+            raise ValueError(f"Cell type directory not found: {celltype_root}")
 
     # Early_stopping
     early_stop_callback = callbacks.EarlyStopping(monitor='val_loss', 
@@ -227,7 +236,52 @@ class TrainModule(pl.LightningModule):
         return {'optimizer' : optimizer, 'lr_scheduler' : scheduler_config}
 
     def get_dataset(self, args, mode):
-        celltype_root = f'{args.dataset_data_root}/{args.dataset_assembly}/{args.dataset_celltype}'
+        assembly_root = f"{args.dataset_data_root}/{args.dataset_assembly}"
+        dataset_ids = [id.strip() for id in args.dataset_celltype.split(',')]
+
+        # Validate all cell types and their features first
+        required_features = None
+        for dataset_id in dataset_ids:
+            celltype_root = f"{assembly_root}/{dataset_id}"
+            if not os.path.exists(celltype_root):
+                raise ValueError(f"Cell type directory not found: {celltype_root}")
+            
+            # Get features for this cell type
+            features = self.get_genomic_features(args, celltype_root)
+            
+            # Check feature consistency
+            if required_features is None:
+                required_features = set(features.keys())
+            elif set(features.keys()) != required_features:
+                raise ValueError(f"Cell type {dataset_id} has different features than {dataset_ids[0]}. "
+                               f"Expected: {required_features}, Got: {set(features.keys())}")
+
+        # If small_test is enabled, use only chr20 for all modes
+        chromosomes = ['chr20'] if args.small_test else None
+
+        # Create datasets only after validation
+        datasets = [
+            genome_dataset.GenomeDataset(
+                f"{assembly_root}/{dataset_id}",
+                args.dataset_assembly,
+                self.get_genomic_features(args, f"{assembly_root}/{dataset_id}"),
+                mode=mode,
+                include_sequence=args.use_sequence,
+                include_genomic_features=True,
+                chromosomes=chromosomes
+            )
+            for dataset_id in dataset_ids
+        ]
+        dataset = torch.utils.data.ConcatDataset(datasets)
+
+        # Record length for printing validation image
+        if mode == 'val':
+            self.val_length = len(dataset) / args.dataloader_batch_size
+            print('Validation loader length:', self.val_length)
+
+        return dataset
+
+    def get_genomic_features(self, args, celltype_root):
         genomic_features_dir = f'{celltype_root}/genomic_features'
         bw_files = [f for f in os.listdir(genomic_features_dir) if f.endswith('.bw')]
 
@@ -247,23 +301,7 @@ class TrainModule(pl.LightningModule):
             norm = feature_norms.get(feature_name, args.genomic_features_norm)
             genomic_features[feature_name] = {'file_name': bw_file, 'norm': norm}
 
-        # If small_test is enabled, use only chr20 for all modes
-        chromosomes = ['chr20'] if args.small_test else None
-
-        dataset = genome_dataset.GenomeDataset(celltype_root,
-                                             args.dataset_assembly,
-                                             genomic_features,
-                                             mode = mode,
-                                             include_sequence = args.use_sequence,
-                                             include_genomic_features = True,
-                                             chromosomes = chromosomes)
-
-        # Record length for printing validation image
-        if mode == 'val':
-            self.val_length = len(dataset) / args.dataloader_batch_size
-            print('Validation loader length:', self.val_length)
-
-        return dataset
+        return genomic_features
 
     def get_dataloader(self, args, mode):
         dataset = self.get_dataset(args, mode)
@@ -294,7 +332,9 @@ class TrainModule(pl.LightningModule):
 
     def get_model(self, args):
         model_name = args.model_type
-        celltype_root = f'{args.dataset_data_root}/{args.dataset_assembly}/{args.dataset_celltype}'
+        # Use the first cell type for model initialization
+        first_celltype = args.dataset_celltype.split(',')[0].strip()
+        celltype_root = f'{args.dataset_data_root}/{args.dataset_assembly}/{first_celltype}'
         genomic_features_dir = f'{celltype_root}/genomic_features'
         num_genomic_features = len([f for f in os.listdir(genomic_features_dir) if f.endswith('.bw')])
         ModelClass = getattr(corigami_models, model_name)

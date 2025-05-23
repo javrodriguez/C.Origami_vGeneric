@@ -77,7 +77,7 @@ class GenomeDataset(Dataset):
         lengths = []
         for chr_name in chr_names:
             omit_regions = self.centrotelo_dict[chr_name]
-            chr_data_dict[chr_name] = ChromosomeDataset(self.data_root, chr_name, omit_regions, genomic_features, self.use_aug)
+            chr_data_dict[chr_name] = ChromosomeDataset(self.data_root, chr_name, omit_regions, genomic_features, self.use_aug, include_sequence=self.include_sequence)
             lengths.append(len(chr_data_dict[chr_name]))
         print('Chromosome datasets loaded')
         return chr_data_dict, lengths

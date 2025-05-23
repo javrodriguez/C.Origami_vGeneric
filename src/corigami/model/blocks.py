@@ -56,35 +56,50 @@ class Encoder(nn.Module):
         return res_blocks
 
 class EncoderSplit(Encoder):
-    def __init__(self, num_epi, output_size = 256, filter_size = 5, num_blocks = 12):
+    def __init__(self, num_epi, output_size = 256, filter_size = 5, num_blocks = 12, use_sequence = True):
         super(Encoder, self).__init__()
         self.filter_size = filter_size
-        self.conv_start_seq = nn.Sequential(
-                                    nn.Conv1d(5, 16, 3, 2, 1),
-                                    nn.BatchNorm1d(16),
-                                    nn.ReLU(),
-                                    )
-        self.conv_start_epi = nn.Sequential(
-                                    nn.Conv1d(num_epi, 16, 3, 2, 1),
-                                    nn.BatchNorm1d(16),
-                                    nn.ReLU(),
-                                    )
-        hiddens =        [32, 32, 32, 32, 64, 64, 128, 128, 128, 128, 256, 256]
-        hidden_ins = [32, 32, 32, 32, 32, 64, 64, 128, 128, 128, 128, 256]
-        hiddens_half = (np.array(hiddens) / 2).astype(int)
-        hidden_ins_half = (np.array(hidden_ins) / 2).astype(int)
-        self.res_blocks_seq = self.get_res_blocks(num_blocks, hidden_ins_half, hiddens_half)
-        self.res_blocks_epi = self.get_res_blocks(num_blocks, hidden_ins_half, hiddens_half)
+        self.use_sequence = use_sequence
+        
+        if use_sequence:
+            self.conv_start_seq = nn.Sequential(
+                                        nn.Conv1d(5, 16, 3, 2, 1),
+                                        nn.BatchNorm1d(16),
+                                        nn.ReLU(),
+                                        )
+            self.conv_start_epi = nn.Sequential(
+                                        nn.Conv1d(num_epi, 16, 3, 2, 1),
+                                        nn.BatchNorm1d(16),
+                                        nn.ReLU(),
+                                        )
+            hiddens =        [32, 32, 32, 32, 64, 64, 128, 128, 128, 128, 256, 256]
+            hidden_ins = [32, 32, 32, 32, 32, 64, 64, 128, 128, 128, 128, 256]
+            hiddens_half = (np.array(hiddens) / 2).astype(int)
+            hidden_ins_half = (np.array(hidden_ins) / 2).astype(int)
+            self.res_blocks_seq = self.get_res_blocks(num_blocks, hidden_ins_half, hiddens_half)
+            self.res_blocks_epi = self.get_res_blocks(num_blocks, hidden_ins_half, hiddens_half)
+        else:
+            self.conv_start_epi = nn.Sequential(
+                                        nn.Conv1d(num_epi, 32, 3, 2, 1),
+                                        nn.BatchNorm1d(32),
+                                        nn.ReLU(),
+                                        )
+            hiddens =        [32, 32, 32, 32, 64, 64, 128, 128, 128, 128, 256, 256]
+            hidden_ins = [32, 32, 32, 32, 32, 64, 64, 128, 128, 128, 128, 256]
+            self.res_blocks_epi = self.get_res_blocks(num_blocks, hidden_ins, hiddens)
+            
         self.conv_end = nn.Conv1d(256, output_size, 1)
 
     def forward(self, x):
-
-        seq = x[:, :5, :]
-        epi = x[:, 5:, :]
-        seq = self.res_blocks_seq(self.conv_start_seq(seq))
-        epi = self.res_blocks_epi(self.conv_start_epi(epi))
-
-        x = torch.cat([seq, epi], dim = 1)
+        if self.use_sequence:
+            seq = x[:, :5, :]
+            epi = x[:, 5:, :]
+            seq = self.res_blocks_seq(self.conv_start_seq(seq))
+            epi = self.res_blocks_epi(self.conv_start_epi(epi))
+            x = torch.cat([seq, epi], dim = 1)
+        else:
+            x = self.res_blocks_epi(self.conv_start_epi(x))
+            
         out = self.conv_end(x)
         return out
 

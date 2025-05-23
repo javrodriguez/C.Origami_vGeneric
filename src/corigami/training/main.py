@@ -86,6 +86,10 @@ def init_parser():
   parser.add_argument('--small_test', dest='small_test', action='store_true',
                         help='Use only a small subset of chromosomes for testing')
 
+  # Add sequence usage control
+  parser.add_argument('--no-sequence', dest='use_sequence', action='store_false', default=True,
+                        help='Disable DNA sequence as a feature (default: sequence is used)')
+
   args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
   return args
 
@@ -151,9 +155,14 @@ class TrainModule(pl.LightningModule):
         return self.model(x)
 
     def proc_batch(self, batch):
-        seq, features, mat, start, end, chr_name, chr_idx = batch
-        features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
-        inputs = torch.cat([seq, features], dim = 2)
+        if self.args.use_sequence:
+            seq, features, mat, start, end, chr_name, chr_idx = batch
+            features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
+            inputs = torch.cat([seq, features], dim = 2)
+        else:
+            features, mat, start, end, chr_name, chr_idx = batch
+            features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
+            inputs = features
         mat = mat.float()
         return inputs, mat
     
@@ -245,7 +254,7 @@ class TrainModule(pl.LightningModule):
                                              args.dataset_assembly,
                                              genomic_features,
                                              mode = mode,
-                                             include_sequence = True,
+                                             include_sequence = args.use_sequence,
                                              include_genomic_features = True,
                                              chromosomes = chromosomes)
 
@@ -289,7 +298,7 @@ class TrainModule(pl.LightningModule):
         genomic_features_dir = f'{celltype_root}/genomic_features'
         num_genomic_features = len([f for f in os.listdir(genomic_features_dir) if f.endswith('.bw')])
         ModelClass = getattr(corigami_models, model_name)
-        model = ModelClass(num_genomic_features, mid_hidden = 256)
+        model = ModelClass(num_genomic_features, mid_hidden = 256, use_sequence = args.use_sequence)
         return model
 
 if __name__ == '__main__':

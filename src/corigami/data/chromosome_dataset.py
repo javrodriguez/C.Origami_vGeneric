@@ -22,8 +22,9 @@ class ChromosomeDataset(Dataset):
             as ``root/DNA/chr1/DNA`` for DNA as an example.
         omit_regions (list of tuples): start and end of excluded regions
     '''
-    def __init__(self, celltype_root, chr_name, omit_regions, feature_list, use_aug = True):
+    def __init__(self, celltype_root, chr_name, omit_regions, feature_list, use_aug = True, include_sequence = True):
         self.use_aug = use_aug
+        self.include_sequence = include_sequence
         self.res = 10000 # 10kb resolution
         self.bins = 209.7152 # 209.7152 bins 2097152 bp
         self.image_scale = 256 # IMPORTANT, scale 210 to 256
@@ -33,8 +34,15 @@ class ChromosomeDataset(Dataset):
 
         print(f'Loading chromosome {chr_name}...')
 
-        self.seq = data_feature.SequenceFeature(path = f'{celltype_root}/../dna_sequence/{chr_name}.fa.gz')
+        # Only load sequence if include_sequence is True
+        if self.include_sequence:
+            self.seq = data_feature.SequenceFeature(path = f'{celltype_root}/../dna_sequence/{chr_name}.fa.gz')
+            print(f'Reading sequence: {celltype_root}/../dna_sequence/{chr_name}.fa.gz')
+        else:
+            self.seq = None
+
         self.genomic_features = feature_list
+        print(f'Reading Hi-C: {celltype_root}/hic_matrix/{chr_name}.npz')
         self.mat = data_feature.HiCFeature(path = f'{celltype_root}/hic_matrix/{chr_name}.npz')
 
         self.omit_regions = omit_regions
@@ -56,11 +64,16 @@ class ChromosomeDataset(Dataset):
 
         if self.use_aug:
             # Extra on sequence
-            seq = self.gaussian_noise(seq, 0.1)
+            if self.include_sequence and seq is not None:
+                seq = self.gaussian_noise(seq, 0.1)
             # Genomic features
             features = [self.gaussian_noise(item, 0.1) for item in features]
             # Reverse complement all data
-            seq, features, mat = self.reverse(seq, features, mat)
+            if self.include_sequence and seq is not None:
+                seq, features, mat = self.reverse(seq, features, mat)
+            else:
+                # Only reverse features and mat
+                features, mat = self.reverse_features_mat(features, mat)
 
         return seq, features, mat, start, end
 
@@ -78,17 +91,28 @@ class ChromosomeDataset(Dataset):
         '''
         r_bool = np.random.rand(1)
         if r_bool < chance:
-            seq_r = np.flip(seq, 0).copy() # n x 5 shape
+            seq_r = np.flip(seq, 0).copy() if seq is not None else None # n x 5 shape
             features_r = [np.flip(item, 0).copy() for item in features] # n
             mat_r = np.flip(mat, [0, 1]).copy() # n x n
 
             # Complementary sequence
-            seq_r = self.complement(seq_r)
+            if seq_r is not None:
+                seq_r = self.complement(seq_r)
         else:
             seq_r = seq
             features_r = features
             mat_r = mat
         return seq_r, features_r, mat_r
+
+    def reverse_features_mat(self, features, mat, chance = 0.5):
+        r_bool = np.random.rand(1)
+        if r_bool < chance:
+            features_r = [np.flip(item, 0).copy() for item in features]
+            mat_r = np.flip(mat, [0, 1]).copy()
+        else:
+            features_r = features
+            mat_r = mat
+        return features_r, mat_r
 
     def complement(self, seq, chance = 0.5):
         '''
@@ -110,7 +134,10 @@ class ChromosomeDataset(Dataset):
         Slice data from arrays with transformations
         '''
         # Sequence processing
-        seq = self.seq.get(start, end)
+        if self.include_sequence:
+            seq = self.seq.get(start, end)
+        else:
+            seq = None
         # Features processing
         features = [item.get(self.chr_name, start, end) for item in self.genomic_features]
         # Hi-C matrix processing
@@ -123,7 +150,11 @@ class ChromosomeDataset(Dataset):
         '''
         Get intervals for sample data: [[start, end]]
         '''
-        chr_bins = len(self.seq) / self.res
+        if self.include_sequence:
+            chr_bins = len(self.seq) / self.res
+        else:
+            # Use genomic feature length instead
+            chr_bins = self.genomic_features[0].length(self.chr_name) / self.res
         data_size = (chr_bins - self.sample_bins) / self.stride
         starts = np.arange(0, data_size).reshape(-1, 1) * self.stride
         intervals_bin = np.append(starts, starts + self.sample_bins, axis=1)
@@ -161,8 +192,12 @@ class ChromosomeDataset(Dataset):
         return start + offset , start + offset + target_size
 
     def check_length(self):
-        assert len(self.seq.seq) == self.genomic_features[0].length(self.chr_name), f'Sequence {len(self.seq)} and First feature {self.genomic_features[0].length(self.chr_name)} have different length.' 
-        assert abs(len(self.seq) / self.res -  len(self.mat)) < 2, f'Sequence {len(self.seq) / self.res} and Hi-C {len(self.mat)} have different length.' 
+        if self.include_sequence:
+            assert len(self.seq.seq) == self.genomic_features[0].length(self.chr_name), f'Sequence {len(self.seq)} and First feature {self.genomic_features[0].length(self.chr_name)} have different length.' 
+            assert abs(len(self.seq) / self.res -  len(self.mat)) < 2, f'Sequence {len(self.seq) / self.res} and Hi-C {len(self.mat)} have different length.' 
+        else:
+            # Only check genomic feature and Hi-C matrix lengths
+            assert abs(self.genomic_features[0].length(self.chr_name) / self.res -  len(self.mat)) < 2, f'Genomic feature {self.genomic_features[0].length(self.chr_name) / self.res} and Hi-C {len(self.mat)} have different length.'
 
 def get_feature_list(root_dir, feat_dicts):
     '''

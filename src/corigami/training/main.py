@@ -127,14 +127,14 @@ def init_training(args):
     pl_module = TrainModule(args)
 
     # Determine accelerator and strategy
-    if args.trainer_num_gpu == 0 or args.dataloader_ddp_disabled:
+    if args.trainer_num_gpu > 0:
+        accelerator = "gpu"
+        strategy = "ddp" if not args.dataloader_ddp_disabled else "auto"
+        devices = args.trainer_num_gpu
+    else:
         accelerator = "cpu"
         strategy = "auto"
         devices = 1
-    else:
-        accelerator = "gpu"
-        strategy = "ddp"
-        devices = args.trainer_num_gpu
 
     pl_trainer = pl.Trainer(
         strategy=strategy,

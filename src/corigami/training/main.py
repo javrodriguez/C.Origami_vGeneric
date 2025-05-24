@@ -180,9 +180,7 @@ class TrainModule(pl.LightningModule):
         outputs = self(inputs)
         criterion = torch.nn.MSELoss()
         loss = criterion(outputs, mat)
-
-        metrics = {'train_step_loss': loss}
-        self.log_dict(metrics, batch_size = inputs.shape[0], prog_bar=True)
+        self.log('train_step_loss', loss, batch_size=inputs.shape[0], sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -190,7 +188,7 @@ class TrainModule(pl.LightningModule):
         outputs = self(inputs)
         criterion = torch.nn.MSELoss()
         loss = criterion(outputs, mat)
-        self.log('val_loss', loss, sync_dist=True)
+        self.log('val_loss', loss, batch_size=inputs.shape[0], sync_dist=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -198,7 +196,7 @@ class TrainModule(pl.LightningModule):
         outputs = self(inputs)
         criterion = torch.nn.MSELoss()
         loss = criterion(outputs, mat)
-        self.log('test_loss', loss, sync_dist=True)
+        self.log('test_loss', loss, batch_size=inputs.shape[0], sync_dist=True)
         return loss
 
     def _shared_eval_step(self, batch, batch_idx):
@@ -212,12 +210,12 @@ class TrainModule(pl.LightningModule):
     def on_train_epoch_end(self):
         # Get the training loss from the logged metrics
         train_loss = self.trainer.callback_metrics.get('train_step_loss', torch.tensor(0.0))
-        self.log('train_loss', train_loss, sync_dist=True)
+        self.log('train_loss', train_loss, batch_size=self.trainer.train_dataloader.batch_size, sync_dist=True)
 
     def on_validation_epoch_end(self):
         # Get the validation loss from the logged metrics
         val_loss = self.trainer.callback_metrics.get('val_loss', torch.tensor(0.0))
-        self.log('val_loss', val_loss, sync_dist=True)
+        self.log('val_loss', val_loss, batch_size=self.trainer.val_dataloaders[0].batch_size, sync_dist=True)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), 

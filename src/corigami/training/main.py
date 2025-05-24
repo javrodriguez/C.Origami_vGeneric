@@ -186,32 +186,38 @@ class TrainModule(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        ret_metrics = self._shared_eval_step(batch, batch_idx)
-        return ret_metrics
+        inputs, mat = self.proc_batch(batch)
+        outputs = self(inputs)
+        criterion = torch.nn.MSELoss()
+        loss = criterion(outputs, mat)
+        self.log('val_loss', loss, sync_dist=True)
+        return loss
 
     def test_step(self, batch, batch_idx):
-        ret_metrics = self._shared_eval_step(batch, batch_idx)
-        return ret_metrics
+        inputs, mat = self.proc_batch(batch)
+        outputs = self(inputs)
+        criterion = torch.nn.MSELoss()
+        loss = criterion(outputs, mat)
+        self.log('test_loss', loss, sync_dist=True)
+        return loss
 
     def _shared_eval_step(self, batch, batch_idx):
         inputs, mat = self.proc_batch(batch)
         outputs = self(inputs)
         criterion = torch.nn.MSELoss()
         loss = criterion(outputs, mat)
-        return loss  # Return just the loss value
+        return loss
 
     # Collect epoch statistics
     def on_train_epoch_end(self):
         # Get the training loss from the logged metrics
         train_loss = self.trainer.callback_metrics.get('train_step_loss', torch.tensor(0.0))
-        metrics = {'train_loss': train_loss}
-        self.log_dict(metrics, prog_bar=True)
+        self.log('train_loss', train_loss, sync_dist=True)
 
     def on_validation_epoch_end(self):
         # Get the validation loss from the logged metrics
         val_loss = self.trainer.callback_metrics.get('val_loss', torch.tensor(0.0))
-        metrics = {'val_loss': val_loss}
-        self.log_dict(metrics, prog_bar=True)
+        self.log('val_loss', val_loss, sync_dist=True)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), 

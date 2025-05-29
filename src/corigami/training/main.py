@@ -224,7 +224,7 @@ class TrainModule(pl.LightningModule):
                                      weight_decay = 0)
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer,
+            optimizer, 
             T_0=10,  # First restart epoch
             T_mult=2,  # Double the restart interval after each restart
             eta_min=1e-6  # Minimum learning rate

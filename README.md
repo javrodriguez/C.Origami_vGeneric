@@ -4,12 +4,13 @@
 
 - The normalization setup of the genomic features can be customized by making use of two arguments:
 
-1) ‘—genomic_features_norm’: Sets one same normalization type for all the genomic features. Choices=[None, ‘log'], default=None.
-2)  ‘—feature_norms’: Can set the normalization type of specific features using a dictionary-like syntaxis. This argument takes key-value pairs where the key is the feature name and the value is the normalization method selected for that feature. Choices=[None, ‘log'], default=None. 
+   '—genomic_features_norm': Sets one same normalization type for all the genomic features. Choices=[None, ‘log'], default=None.
+  
+   '—feature_norms': Sets the normalization type of specific features using a dictionary-like syntaxis. This argument takes key-value pairs where the key is the feature name and the value is the normalization method selected for that feature. Choices=[None, ‘log'], default=None. 
 
 - Flexible setup of genomic samples. The argument ‘—celltype’ now accepts multiple samples which can be set using a comma-separated list of sample names. Example: —celltype MCG0023,MCG0019,MCG0027,MCG0034
 
-- Using DNA sequence is not a mandatory. By default it requires DNA sequence. Setting a ‘—no-sequence’ flag excludes this feature. 
+- The DNA sequence feature can be excluded by using the ‘—no-sequence’ flag. 
 
 
 

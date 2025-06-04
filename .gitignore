@@ -4,7 +4,10 @@ venv/
 env/
 
 # Data directories
-data/
+-data/
+
+# Allow tracking of code in src/corigami/data
+!src/corigami/data/*.py
 
 # Checkpoints and logs
 checkpoints/

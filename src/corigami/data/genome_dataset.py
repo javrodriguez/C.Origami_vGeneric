@@ -97,6 +97,14 @@ class GenomeDataset(Dataset):
             file_path = f'{root_dir}/{file_name}'
             norm = feat_item['norm']
             feat_list.append(data_feature.GenomicFeature(file_path, norm))
+        # Robust check for invalid features
+        for i, feature in enumerate(feat_list):
+            if feature is None or not hasattr(feature, 'length'):
+                raise ValueError(
+                    f"Genomic feature at index {i} is None or invalid. "
+                    f"Check if the corresponding .bw file exists and is a valid bigWig file. "
+                    f"Feature info: {list(feat_dicts.values())[i]}"
+                )
         return feat_list
         
     def get_chr_names(self, assembly):

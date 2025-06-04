@@ -220,14 +220,33 @@ class TrainModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), 
-                                     lr = 2e-4,
+                                     lr = 2e-4,  # Maximum learning rate
                                      weight_decay = 0)
 
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, 
-            T_0=10,  # First restart epoch
-            T_mult=2,  # Double the restart interval after each restart
-            eta_min=1e-6  # Minimum learning rate
+        from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
+        warmup_epochs = 10
+        total_epochs = self.args.trainer_max_epochs
+        min_lr = 1e-6
+        max_lr = 2e-4
+
+        # Linear warmup from min_lr to max_lr for the first 10 epochs
+        warmup_scheduler = LinearLR(
+            optimizer,
+            start_factor=min_lr/max_lr,
+            end_factor=1.0,
+            total_iters=warmup_epochs
+        )
+        # Cosine annealing for the rest
+        cosine_scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=total_epochs - warmup_epochs,
+            eta_min=min_lr
+        )
+        # Combine them
+        scheduler = SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, cosine_scheduler],
+            milestones=[warmup_epochs]
         )
         
         scheduler_config = {
@@ -236,7 +255,7 @@ class TrainModule(pl.LightningModule):
             'frequency': 1,
             'monitor': 'val_loss',
             'strict': True,
-            'name': 'CosineAnnealingWarmRestarts',
+            'name': 'LinearWarmup+CosineAnnealing',
         }
         return {'optimizer' : optimizer, 'lr_scheduler' : scheduler_config}
 

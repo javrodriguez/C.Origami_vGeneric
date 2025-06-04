@@ -1,4 +1,6 @@
-### C.Origami generic version with flexible setup of input features to train models with different number and types of features, and different number of genomic samples/celltypes.
+### C.Origami generic version with dynamic setup of input features and genomic samples. 
+
+Motivation: Training models using different strategies, i.e., using different number and types of features.
 
 - This version provides a dynamic setup for input features as opposed to the fixed ATAC-seq, ChIP-CTCF and DNA sequence features. To do this, the genomic features are dynamically fetched from the /genomic_features/ directory. Each bigwig file found in that directory will be used as a feature. The bigwig file name (excluding the .bw suffix) provides the name of the feature, which can be used (if required) to set the normalization method for individual features.
 

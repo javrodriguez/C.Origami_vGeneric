@@ -105,6 +105,21 @@ class GenomeDataset(Dataset):
                     f"Check if the corresponding .bw file exists and is a valid bigWig file. "
                     f"Feature info: {list(feat_dicts.values())[i]}"
                 )
+            # New: Check that .length() returns a valid value for at least one chromosome
+            try:
+                test_chr = 'chr1'
+                test_length = feature.length(test_chr)
+                if test_length is None:
+                    raise ValueError(
+                        f"Genomic feature at index {i} loaded but .length('{test_chr}') returned None. "
+                        f"File may be corrupt or missing data for {test_chr}. "
+                        f"Feature info: {list(feat_dicts.values())[i]}"
+                    )
+            except Exception as e:
+                raise ValueError(
+                    f"Error when calling .length() on genomic feature at index {i}: {e}. "
+                    f"Feature info: {list(feat_dicts.values())[i]}"
+                )
         return feat_list
         
     def get_chr_names(self, assembly):

@@ -1,12 +1,12 @@
-### C.Origami generic version with flexible setup of input features to train models with different number and types of features.
+### C.Origami generic version with flexible setup of input features to train models with different number and types of features, and different number of genomic samples/celltypes.
 
-- This version provides a dynamic setup for input features as opposed to the fixed ATAC-seq, ChIP-CTCF and DNA sequence features. To do this, the genomic features are dynamically fetched from the /genomic_features/ directory. Each bigwig file found in that directory will be used as a feature. The bigwig file name provides the name of the feature (excluding the .bw suffix).
+- This version provides a dynamic setup for input features as opposed to the fixed ATAC-seq, ChIP-CTCF and DNA sequence features. To do this, the genomic features are dynamically fetched from the /genomic_features/ directory. Each bigwig file found in that directory will be used as a feature. The bigwig file name (excluding the .bw suffix) provides the name of the feature, which can be used (if required) to set the normalization method for individual features.
 
 - The normalization setup of the genomic features can be customized by making use of two arguments:
 
    '—-genomic_features_norm': Sets one same normalization type for all the genomic features. Choices=[None, ‘log'], default=None.
   
-   '—-feature_norms': Sets the normalization type of specific features using a dictionary-like syntaxis. This argument takes key-value pairs where the key is the feature name and the value is the normalization method selected for that feature. Choices=[None, ‘log'], default=None. 
+   '—-feature_norms': Sets the normalization type of specific features using a dictionary-like syntaxis. This argument takes key-value pairs where the key is the feature name and the value is the normalization method selected for that feature. Choices=[None, ‘log'], default=None. If used, the global normalization method set in genomic_features_norm argument will be overriden for the selected features.
 
 - Flexible setup of genomic samples. The argument ‘-—celltype’ now accepts multiple samples which can be set using a comma-separated list of sample names. Example: —celltype MCG0023,MCG0019,MCG0027,MCG0034
 

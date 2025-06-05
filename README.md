@@ -83,22 +83,31 @@ corigami-train [options]
 
 ##### Example Training Strategies
 
-1. **Standard Training with Multiple Samples**
+1. **Standard Training with One Sample**
    ```bash
-   corigami-train --data-root ./data --celltype MCG0023,MCG0019 --genomic_features_norm log
+   corigami-train --data-root ./data --celltype MCG0023 --feature_norms atac:'log',ctcf:None 
+   ```
+2. **Standard Training with One Sample (no DNA input for CTCF)**
+   ```bash
+   corigami-train --data-root ./data --celltype MCG0023 --genomic_features_norm 'log'
+   ```
+      
+3. **Standard Training with Multiple Samples**
+   ```bash
+   corigami-train --data-root ./data --celltype MCG0023,MCG0019 --feature_norms atac:'log',ctcf:None 
    ```
 
-2. **Training with Custom Feature Normalization**
+4. **Training with Custom Feature Normalization (e.g. large number of predicted transcription factor activities and ATAC-seq)**
    ```bash
-   corigami-train --data-root ./data --celltype MCG0023 --genomic_features_norm log --feature_norms ctcf:None
+   corigami-train --data-root ./data --celltype MCG0023 --genomic_features_norm None --feature_norms atac:'log'
    ```
 
-3. **Training without DNA Sequence**
+5. **Standard training without DNA Sequence**
    ```bash
-   corigami-train --data-root ./data --celltype MCG0023 --genomic_features_norm None --no-sequence
+   corigami-train --data-root ./data --celltype MCG0023 --feature_norms atac:'log',ctcf:None  --no-sequence
    ```
 
-4. **Training on Specific Chromosome**
+6. **Training on Specific Chromosome**
    ```bash
    corigami-train --data-root ./data --celltype MCG0023 --test_chromosome chr1
    ```

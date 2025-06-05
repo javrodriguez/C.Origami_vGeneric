@@ -82,9 +82,9 @@ def init_parser():
                         type=str,
                         help='Comma-separated list of feature:norm pairs (e.g., "ctcf:log,atac:None")')
 
-  # Add small_test flag
-  parser.add_argument('--small_test', dest='small_test', action='store_true',
-                        help='Use only a small subset of chromosomes for testing')
+  # Add test chromosome argument
+  parser.add_argument('--test_chromosome', dest='test_chromosome', nargs='?', const='chr20', default=None,
+                        help='Use a single chromosome for testing. Without value uses chr20, with value uses specified chromosome (e.g., --test_chromosome chr1)')
 
   # Add sequence usage control
   parser.add_argument('--no-sequence', dest='use_sequence', action='store_false', default=True,
@@ -279,8 +279,8 @@ class TrainModule(pl.LightningModule):
                 raise ValueError(f"Cell type {dataset_id} has different features than {dataset_ids[0]}. "
                                f"Expected: {required_features}, Got: {set(features.keys())}")
 
-        # If small_test is enabled, use only chr20 for all modes
-        chromosomes = ['chr20'] if args.small_test else None
+        # Use chr20 if test_chromosome is used without value, or specified chromosome if value is provided
+        chromosomes = [args.test_chromosome] if args.test_chromosome else None
 
         # Create datasets only after validation
         datasets = [

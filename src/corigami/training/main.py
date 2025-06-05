@@ -279,8 +279,16 @@ class TrainModule(pl.LightningModule):
                 raise ValueError(f"Cell type {dataset_id} has different features than {dataset_ids[0]}. "
                                f"Expected: {required_features}, Got: {set(features.keys())}")
 
-        # Use chr20 if test_chromosome is used without value, or specified chromosome if value is provided
-        chromosomes = [args.test_chromosome] if args.test_chromosome else None
+        # Set chromosomes based on mode
+        if mode == 'train' and args.test_chromosome:
+            # For training, use the specified test chromosome if provided
+            chromosomes = [args.test_chromosome]
+        elif mode == 'val':
+            # For validation, always use chr10
+            chromosomes = ['chr10']
+        else:
+            # For test or when no test_chromosome is specified, use all chromosomes
+            chromosomes = None
 
         # Create datasets only after validation
         datasets = [

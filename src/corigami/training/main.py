@@ -129,7 +129,7 @@ def init_training(args):
     # Determine accelerator and strategy
     if args.trainer_num_gpu > 0:
         accelerator = "gpu"
-        strategy = "ddp" if not args.dataloader_ddp_disabled else "auto"
+        strategy = pl.strategies.DDPStrategy(find_unused_parameters=False) if not args.dataloader_ddp_disabled else "auto"
         devices = args.trainer_num_gpu
     else:
         accelerator = "cpu"

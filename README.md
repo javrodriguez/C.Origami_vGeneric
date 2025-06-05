@@ -24,25 +24,25 @@ You can specify that by using the '--no-sequence' flag.
 
 #### - Training on individual chromosomes.
 
-To facilitate testing you can make use of the '--test_chromosome' argument to train on a specific chromosome.
-
-Examples:
---test_chromosome (no value) will train on the 'chr20' by default.
---test_chromosome chr1 (with value) will train on 'chr1' only.
-Not using this flag will use all the standard training chromosomes.
+To facilitate testing you can make use of the '--test_chromosome' argument to train on a specific chromosome. default=None.
 
 #### - Examples of setups in different training strategies:
 
-Standard training: --celltype MCG0023 --genomic_features_norm 'log' --feature_norms ctcf:None.
+Standard training:  
+--celltype MCG0023 --genomic_features_norm 'log' --feature_norms ctcf:None.
 
-Standard training, no CTCF DNA input,: --celltype MCG0023 --genomic_features_norm 'log'.
+Standard training, no CTCF DNA input:  
+--celltype MCG0023 --genomic_features_norm 'log'.
 
-MaxATAC predicted CTCF, multiple-sample: --celltype MCG0023,MCG0019,MCG0027,MCG0034 --genomic_features_norm None.
+MaxATAC predicted CTCF, multiple-sample:  
+--celltype MCG0023,MCG0019,MCG0027,MCG0034 --genomic_features_norm None.
 
-Prior TF activity training with ATAC-seq, no DNA sequence: --celltype MCG0023 —-genomic_features_norm 'None' --feature_norms atac:'log' --no_sequence.  
+Prior TF activity training with ATAC-seq, no DNA sequence:  
+--celltype MCG0023 —-genomic_features_norm 'None' --feature_norms atac:'log' --no_sequence.  
 (The TFs activity values are not transformed while the atac-seq is log-transformed).
 
-Prior TF activity training, no ATAC-seq, no DNA sequence: --celltype MCG0023 --genomic_features_norm None --no_sequence.
+Prior TF activity training, no ATAC-seq, no DNA sequence:  
+--celltype MCG0023  --genomic_features_norm None --no_sequence.
 
 
 #### Installation:

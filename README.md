@@ -130,3 +130,9 @@ corigami-train [options]
    conda activate corigami_vGeneric
    pip install .
    ```
+
+4. Singularity installation
+Alternatively, C.Origami can be used with singularity images.
+We provide images for maxATAC, C.Origami and C.Origami dependencies (useful when working with a dev version of C.Origami).
+All of those are available at https://doi.org/10.5281/zenodo.15604832
+check the ./singularity directory for example usage scripts and the .def files used to generate those images

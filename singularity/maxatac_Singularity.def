@@ -1,0 +1,41 @@
+Bootstrap: docker
+From: python:3.9-slim
+
+%labels
+    Author: barzag01
+    Description: "MaxATAC container without Conda"
+
+%post
+    # Install OS-level packages
+    apt-get update && apt-get install -y \
+        wget \
+        git \
+        curl \
+        g++ \
+        bedtools \
+        samtools \
+        pigz \
+        zlib1g-dev \
+        libpng-dev \
+        libcurl4-openssl-dev \
+        ca-certificates \
+        && apt-get clean
+
+    # Install UCSC bedGraphToBigWig tool
+    mkdir -p /opt/ucsc && cd /opt/ucsc
+    wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedGraphToBigWig
+    chmod +x bedGraphToBigWig
+    ln -s /opt/ucsc/bedGraphToBigWig /usr/local/bin/
+
+    # Install Python packages
+    pip install --no-cache-dir --upgrade pip
+    pip install maxatac==1.0.6 \
+        numpy==1.24.2 \
+        tensorflow==2.11.0
+
+%environment
+    # Make UCSC tool available
+    export PATH="/opt/ucsc:$PATH"
+
+%runscript
+    exec "$@"

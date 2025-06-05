@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: nvidia/cuda:12.6.0-devel-ubuntu20.04
+
+%post
+    # Set non-interactive mode and time zone to avoid tzdata prompt
+    export DEBIAN_FRONTEND=noninteractive
+    ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
+    echo "Etc/UTC" > /etc/timezone
+
+    # Install Python 3.9 and minimal system dependencies
+    apt-get update && apt-get install -y --no-install-recommends \
+        python3.9 \
+        python3.9-venv \
+        python3.9-dev \
+        wget \
+        curl \
+        git \
+        build-essential \
+        ca-certificates \
+        libhdf5-dev \
+        zlib1g-dev \
+        libffi-dev \
+        libssl-dev \
+        libbz2-dev \
+        liblzma-dev \
+        libsqlite3-dev \
+        libreadline-dev \
+        libnss3-dev
+
+    # Set Python 3.9 as default
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
+
+    # Install pip
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
+    python3.9 -m pip install --no-cache-dir --upgrade pip
+
+    # Install Python packages in one shot
+    python3.9 -m pip install \
+        numpy==1.22.4 \
+        pandas==1.3.0 \
+        matplotlib==3.3.2 \
+        pybigwig==0.3.18 \
+        omegaconf==2.1.1 \
+        tqdm==4.64.0 \
+        "fsspec[http]==2021.05.0"
+
+    # Install PyTorch (CUDA 12.6)
+    python3.9 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+
+    # Install corigami:
+    # python3.9 -m pip install corigami # uncomment to install version 0.0.1
+
+    # Clean up to reduce image size
+    apt-get clean && rm -rf /var/lib/apt/lists/* ~/.cache/pip
+
+%environment
+    export LC_ALL=C
+    export LANG=C
+    export PYTHONNOUSERSITE=1
+    export CUDA_HOME=/usr/local/cuda
+
+%runscript
+    echo "Container with corigami and Python 3.9 ready."
+    exec "$@"

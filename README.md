@@ -22,14 +22,16 @@ The normalization setup can be customized by making use of the following two arg
 
 You can specify that by using the '--no-sequence' flag. 
 
-#### - Allows training on individual chromosomes by using the '--test_chromosome' argument:
+#### - Training on individual chromosomes.
+
+To facilitate testing you can make use of the '--test_chromosome' argument to train on a specific chromosome.
 
 Examples:
 --test_chromosome (no value) will train on the 'chr20' by default.
 --test_chromosome chr1 (with value) will train on 'chr1' only.
 Not using this flag will use all the standard training chromosomes.
 
-- Examples of setups in different training strategies:
+#### - Examples of setups in different training strategies:
 
 Standard training: --celltype MCG0023 --genomic_features_norm 'log' --feature_norms ctcf:None.
 

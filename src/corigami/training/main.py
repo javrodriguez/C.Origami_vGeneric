@@ -214,9 +214,8 @@ class TrainModule(pl.LightningModule):
         self.log('train_loss', train_loss, batch_size=self.trainer.train_dataloader.batch_size, sync_dist=True)
 
     def on_validation_epoch_end(self):
-        # Get the validation loss from the logged metrics
-        val_loss = self.trainer.callback_metrics.get('val_loss', torch.tensor(0.0))
-        self.log('val_loss', val_loss, batch_size=self.trainer.val_dataloaders.batch_size, sync_dist=True)
+        # No need to log val_loss here as it's already logged in validation_step
+        pass
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), 

@@ -159,7 +159,6 @@ def init_training(args):
             repeat=2
         ),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(f'{args.run_save_path}/profiler/tensorboard'),
-        record_shapes=True,
         with_flops=True,
         with_modules=True
     )

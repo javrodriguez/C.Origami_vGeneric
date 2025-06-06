@@ -191,10 +191,30 @@ class TrainModule(pl.LightningModule):
     def forward(self, x):
         with record_function("model_forward"):
             # Encoder profiling
-            with record_function("encoder_conv_start"):
-                x = self.model.encoder.conv_start(x)
-            with record_function("encoder_res_blocks"):
-                x = self.model.encoder.res_blocks(x)
+            if self.model.use_sequence:
+                with record_function("encoder_sequence"):
+                    seq = x[:, :5, :]
+                    with record_function("encoder_conv_start_seq"):
+                        seq = self.model.encoder.conv_start_seq(seq)
+                    with record_function("encoder_res_blocks_seq"):
+                        seq = self.model.encoder.res_blocks_seq(seq)
+                
+                with record_function("encoder_epigenetic"):
+                    epi = x[:, 5:, :]
+                    with record_function("encoder_conv_start_epi"):
+                        epi = self.model.encoder.conv_start_epi(epi)
+                    with record_function("encoder_res_blocks_epi"):
+                        epi = self.model.encoder.res_blocks_epi(epi)
+                
+                with record_function("encoder_concat"):
+                    x = torch.cat([seq, epi], dim=1)
+            else:
+                with record_function("encoder_epigenetic_only"):
+                    with record_function("encoder_conv_start_epi"):
+                        x = self.model.encoder.conv_start_epi(x)
+                    with record_function("encoder_res_blocks_epi"):
+                        x = self.model.encoder.res_blocks_epi(x)
+            
             with record_function("encoder_conv_end"):
                 x = self.model.encoder.conv_end(x)
             

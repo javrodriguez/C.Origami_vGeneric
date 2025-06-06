@@ -5,6 +5,7 @@ import numpy as np
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as callbacks
 import os
+import multiprocessing
 
 import corigami.model.corigami_models as corigami_models
 from corigami.data import genome_dataset
@@ -343,21 +344,32 @@ class TrainModule(pl.LightningModule):
             shuffle = False
         
         batch_size = args.dataloader_batch_size
-        num_workers = args.dataloader_num_workers
+        
+        # Get number of available CPU cores
+        num_cpus = multiprocessing.cpu_count()
+        
+        # Calculate optimal number of workers
+        # Use 75% of available cores, but at least 1 and at most the requested number
+        optimal_workers = max(1, min(int(num_cpus * 0.75), args.dataloader_num_workers))
+        num_workers = optimal_workers
 
         if not args.dataloader_ddp_disabled and args.trainer_num_gpu > 0:
             gpus = args.trainer_num_gpu
             batch_size = int(args.dataloader_batch_size / gpus)
-            num_workers = int(args.dataloader_num_workers / gpus) 
+            # Distribute workers across GPUs, ensuring at least 1 worker per GPU
+            num_workers = max(1, int(num_workers / gpus))
 
+        print(f'Using {num_workers} workers out of {num_cpus} available CPU cores')
+        
         dataloader = torch.utils.data.DataLoader(
             dataset,
             shuffle=shuffle,
             batch_size=batch_size,
             num_workers=num_workers,
             pin_memory=True,
-            prefetch_factor=1,
-            persistent_workers=True
+            prefetch_factor=2,
+            persistent_workers=True,
+            timeout=60  # Add timeout to prevent hanging
         )
         return dataloader
 

@@ -190,6 +190,9 @@ class TrainModule(pl.LightningModule):
 
     def forward(self, x):
         with record_function("model_forward"):
+            # Move features to correct dimension using model's method
+            x = self.model.move_feature_forward(x).float()
+            
             # Encoder profiling
             if self.model.use_sequence:
                 with record_function("encoder_sequence"):
@@ -220,10 +223,13 @@ class TrainModule(pl.LightningModule):
             
             # Transformer profiling
             with record_function("transformer_attention"):
+                x = self.model.move_feature_forward(x)
                 x = self.model.attn(x)
             
             # Decoder profiling
             with record_function("decoder_conv_start"):
+                x = self.model.move_feature_forward(x)
+                x = self.model.diagonalize(x)
                 x = self.model.decoder.conv_start(x)
             with record_function("decoder_res_blocks"):
                 x = self.model.decoder.res_blocks(x)
@@ -245,6 +251,7 @@ class TrainModule(pl.LightningModule):
                 with record_function("feature_processing"):
                     features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
                     inputs = features
+            
             with record_function("matrix_processing"):
                 mat = mat.float()
             return inputs, mat

@@ -160,7 +160,16 @@ def init_training(args):
         ),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(f'{args.run_save_path}/profiler/tensorboard'),
         with_flops=True,
-        with_modules=True
+        with_modules=True,
+        record_memory=True,  # Enable memory recording
+        with_stack=True,    # Enable stack traces
+        with_threads=True,  # Enable thread information
+        with_cuda=True,     # Enable CUDA information
+        with_cudnn=True,    # Enable cuDNN information
+        with_cpu=True,      # Enable CPU information
+        with_cpu_memory=True,  # Enable CPU memory tracking
+        with_cuda_memory=True, # Enable CUDA memory tracking
+        with_cuda_utilization=True  # Enable CUDA utilization tracking
     )
 
     pl_trainer = pl.Trainer(

@@ -190,40 +190,67 @@ class TrainModule(pl.LightningModule):
         self.save_hyperparameters()
 
     def forward(self, x):
-        return self.model(x)
+        with record_function("model_forward"):
+            # Encoder profiling
+            with record_function("encoder_conv_start"):
+                x = self.model.encoder.conv_start(x)
+            with record_function("encoder_res_blocks"):
+                x = self.model.encoder.res_blocks(x)
+            with record_function("encoder_conv_end"):
+                x = self.model.encoder.conv_end(x)
+            
+            # Transformer profiling
+            with record_function("transformer_attention"):
+                x = self.model.attn(x)
+            
+            # Decoder profiling
+            with record_function("decoder_conv_start"):
+                x = self.model.decoder.conv_start(x)
+            with record_function("decoder_res_blocks"):
+                x = self.model.decoder.res_blocks(x)
+            with record_function("decoder_conv_end"):
+                x = self.model.decoder.conv_end(x)
+            return x
 
     def proc_batch(self, batch):
         with record_function("proc_batch"):
             if self.args.use_sequence:
-                seq, features, mat, start, end, chr_name, chr_idx = batch
+                with record_function("sequence_loading"):
+                    seq, features, mat, start, end, chr_name, chr_idx = batch
                 with record_function("feature_processing"):
                     features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
                     inputs = torch.cat([seq, features], dim = 2)
             else:
-                features, mat, start, end, chr_name, chr_idx = batch
+                with record_function("feature_loading"):
+                    features, mat, start, end, chr_name, chr_idx = batch
                 with record_function("feature_processing"):
                     features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
                     inputs = features
-            mat = mat.float()
+            with record_function("matrix_processing"):
+                mat = mat.float()
             return inputs, mat
     
     def training_step(self, batch, batch_idx):
         with record_function("training_step"):
-            inputs, mat = self.proc_batch(batch)
+            with record_function("data_loading"):
+                inputs, mat = self.proc_batch(batch)
             with record_function("model_forward"):
                 outputs = self(inputs)
-            criterion = torch.nn.MSELoss()
-            loss = criterion(outputs, mat)
+            with record_function("loss_computation"):
+                criterion = torch.nn.MSELoss()
+                loss = criterion(outputs, mat)
             self.log('train_step_loss', loss, batch_size=inputs.shape[0], sync_dist=True, on_step=True, on_epoch=True)
             return loss
 
     def validation_step(self, batch, batch_idx):
         with record_function("validation_step"):
-            inputs, mat = self.proc_batch(batch)
+            with record_function("data_loading"):
+                inputs, mat = self.proc_batch(batch)
             with record_function("model_forward"):
                 outputs = self(inputs)
-            criterion = torch.nn.MSELoss()
-            loss = criterion(outputs, mat)
+            with record_function("loss_computation"):
+                criterion = torch.nn.MSELoss()
+                loss = criterion(outputs, mat)
             self.log('val_loss', loss, batch_size=inputs.shape[0], sync_dist=True)
             return loss
 

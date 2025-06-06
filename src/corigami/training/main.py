@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 import pytorch_lightning.callbacks as callbacks
 import os
 from torch.profiler import profile, record_function, ProfilerActivity
+from pytorch_lightning.profilers import PyTorchProfiler
 
 import corigami.model.corigami_models as corigami_models
 from corigami.data import genome_dataset
@@ -138,7 +139,7 @@ def init_training(args):
         devices = 1
 
     # Configure profiler
-    profiler = pl.profiler.PyTorchProfiler(
+    profiler = PyTorchProfiler(
         dirpath=f'{args.run_save_path}/profiler',
         filename='profile',
         export_to_chrome=True,

@@ -138,7 +138,7 @@ def init_training(args):
         strategy = "auto"
         devices = 1
 
-    # Configure profiler
+    # Configure profiler with more detailed settings
     profiler = PyTorchProfiler(
         dirpath=f'{args.run_save_path}/profiler',
         filename='profile',
@@ -147,7 +147,21 @@ def init_training(args):
         sort_by_key='cuda_time_total',
         record_shapes=True,
         profile_memory=True,
-        with_stack=True
+        with_stack=True,
+        activities=[
+            ProfilerActivity.CPU,
+            ProfilerActivity.CUDA,
+        ],
+        schedule=torch.profiler.schedule(
+            wait=1,
+            warmup=1,
+            active=3,
+            repeat=2
+        ),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(f'{args.run_save_path}/profiler/tensorboard'),
+        record_shapes=True,
+        with_flops=True,
+        with_modules=True
     )
 
     pl_trainer = pl.Trainer(
@@ -179,16 +193,19 @@ class TrainModule(pl.LightningModule):
         return self.model(x)
 
     def proc_batch(self, batch):
-        if self.args.use_sequence:
-            seq, features, mat, start, end, chr_name, chr_idx = batch
-            features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
-            inputs = torch.cat([seq, features], dim = 2)
-        else:
-            features, mat, start, end, chr_name, chr_idx = batch
-            features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
-            inputs = features
-        mat = mat.float()
-        return inputs, mat
+        with record_function("proc_batch"):
+            if self.args.use_sequence:
+                seq, features, mat, start, end, chr_name, chr_idx = batch
+                with record_function("feature_processing"):
+                    features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
+                    inputs = torch.cat([seq, features], dim = 2)
+            else:
+                features, mat, start, end, chr_name, chr_idx = batch
+                with record_function("feature_processing"):
+                    features = torch.cat([feat.unsqueeze(2) for feat in features], dim = 2)
+                    inputs = features
+            mat = mat.float()
+            return inputs, mat
     
     def training_step(self, batch, batch_idx):
         with record_function("training_step"):

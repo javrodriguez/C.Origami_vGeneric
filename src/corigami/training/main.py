@@ -190,52 +190,8 @@ class TrainModule(pl.LightningModule):
 
     def forward(self, x):
         with record_function("model_forward"):
-            # Move features to correct dimension using model's method
-            x = self.model.move_feature_forward(x).float()
-            
-            # Encoder profiling
-            if self.model.use_sequence:
-                with record_function("encoder_sequence"):
-                    seq = x[:, :5, :]
-                    with record_function("encoder_conv_start_seq"):
-                        seq = self.model.encoder.conv_start_seq(seq)
-                    with record_function("encoder_res_blocks_seq"):
-                        seq = self.model.encoder.res_blocks_seq(seq)
-                
-                with record_function("encoder_epigenetic"):
-                    epi = x[:, 5:, :]
-                    with record_function("encoder_conv_start_epi"):
-                        epi = self.model.encoder.conv_start_epi(epi)
-                    with record_function("encoder_res_blocks_epi"):
-                        epi = self.model.encoder.res_blocks_epi(epi)
-                
-                with record_function("encoder_concat"):
-                    x = torch.cat([seq, epi], dim=1)
-            else:
-                with record_function("encoder_epigenetic_only"):
-                    with record_function("encoder_conv_start_epi"):
-                        x = self.model.encoder.conv_start_epi(x)
-                    with record_function("encoder_res_blocks_epi"):
-                        x = self.model.encoder.res_blocks_epi(x)
-            
-            with record_function("encoder_conv_end"):
-                x = self.model.encoder.conv_end(x)
-            
-            # Transformer profiling
-            with record_function("transformer_attention"):
-                x = self.model.move_feature_forward(x)
-                x = self.model.attn(x)
-            
-            # Decoder profiling
-            with record_function("decoder_conv_start"):
-                x = self.model.move_feature_forward(x)
-                x = self.model.diagonalize(x)
-                x = self.model.decoder.conv_start(x)
-            with record_function("decoder_res_blocks"):
-                x = self.model.decoder.res_blocks(x)
-            with record_function("decoder_conv_end"):
-                x = self.model.decoder.conv_end(x)
-            return x
+            # Use the model's original forward method which handles all dimension transformations
+            return self.model(x)
 
     def proc_batch(self, batch):
         with record_function("proc_batch"):

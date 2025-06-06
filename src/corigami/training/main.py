@@ -5,7 +5,7 @@ import numpy as np
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as callbacks
 import os
-import multiprocessing
+from torch.profiler import profile, record_function, ProfilerActivity
 
 import corigami.model.corigami_models as corigami_models
 from corigami.data import genome_dataset
@@ -137,6 +137,18 @@ def init_training(args):
         strategy = "auto"
         devices = 1
 
+    # Configure profiler
+    profiler = pl.profiler.PyTorchProfiler(
+        dirpath=f'{args.run_save_path}/profiler',
+        filename='profile',
+        export_to_chrome=True,
+        row_limit=100,
+        sort_by_key='cuda_time_total',
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True
+    )
+
     pl_trainer = pl.Trainer(
         strategy=strategy,
         accelerator=accelerator,
@@ -146,7 +158,8 @@ def init_training(args):
         callbacks=[early_stop_callback, checkpoint_callback, lr_monitor],
         max_epochs=args.trainer_max_epochs,
         limit_train_batches=args.trainer_limit_train_batches,
-        limit_val_batches=args.trainer_limit_val_batches
+        limit_val_batches=args.trainer_limit_val_batches,
+        profiler=profiler
     )
     trainloader = pl_module.get_dataloader(args, 'train')
     valloader = pl_module.get_dataloader(args, 'val')
@@ -177,21 +190,24 @@ class TrainModule(pl.LightningModule):
         return inputs, mat
     
     def training_step(self, batch, batch_idx):
-        inputs, mat = self.proc_batch(batch)
-        outputs = self(inputs)
-        criterion = torch.nn.MSELoss()
-        loss = criterion(outputs, mat)
-        self.log('train_step_loss', loss, batch_size=inputs.shape[0], sync_dist=True, on_step=True, on_epoch=True)
-        return loss
+        with record_function("training_step"):
+            inputs, mat = self.proc_batch(batch)
+            with record_function("model_forward"):
+                outputs = self(inputs)
+            criterion = torch.nn.MSELoss()
+            loss = criterion(outputs, mat)
+            self.log('train_step_loss', loss, batch_size=inputs.shape[0], sync_dist=True, on_step=True, on_epoch=True)
+            return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs, mat = self.proc_batch(batch)
-        outputs = self(inputs)
-        criterion = torch.nn.MSELoss()
-        loss = criterion(outputs, mat)
-        # Only log the loss, without on_step or on_epoch to keep it simple
-        self.log('val_loss', loss, batch_size=inputs.shape[0], sync_dist=True)
-        return loss
+        with record_function("validation_step"):
+            inputs, mat = self.proc_batch(batch)
+            with record_function("model_forward"):
+                outputs = self(inputs)
+            criterion = torch.nn.MSELoss()
+            loss = criterion(outputs, mat)
+            self.log('val_loss', loss, batch_size=inputs.shape[0], sync_dist=True)
+            return loss
 
     def test_step(self, batch, batch_idx):
         inputs, mat = self.proc_batch(batch)
@@ -344,32 +360,21 @@ class TrainModule(pl.LightningModule):
             shuffle = False
         
         batch_size = args.dataloader_batch_size
-        
-        # Get number of available CPU cores
-        num_cpus = multiprocessing.cpu_count()
-        
-        # Calculate optimal number of workers
-        # Use 75% of available cores, but at least 1 and at most the requested number
-        optimal_workers = max(1, min(int(num_cpus * 0.75), args.dataloader_num_workers))
-        num_workers = optimal_workers
+        num_workers = args.dataloader_num_workers
 
         if not args.dataloader_ddp_disabled and args.trainer_num_gpu > 0:
             gpus = args.trainer_num_gpu
             batch_size = int(args.dataloader_batch_size / gpus)
-            # Distribute workers across GPUs, ensuring at least 1 worker per GPU
-            num_workers = max(1, int(num_workers / gpus))
+            num_workers = int(args.dataloader_num_workers / gpus) 
 
-        print(f'Using {num_workers} workers out of {num_cpus} available CPU cores')
-        
         dataloader = torch.utils.data.DataLoader(
             dataset,
             shuffle=shuffle,
             batch_size=batch_size,
             num_workers=num_workers,
             pin_memory=True,
-            prefetch_factor=2,
-            persistent_workers=True,
-            timeout=60  # Add timeout to prevent hanging
+            prefetch_factor=1,
+            persistent_workers=True
         )
         return dataloader
 

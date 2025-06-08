@@ -169,3 +169,4 @@ outputs
 *.gz
 *.DS_Store
 
+external_data/

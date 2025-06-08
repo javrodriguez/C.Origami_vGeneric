@@ -106,14 +106,28 @@ class GenomicFeature(GenomicFeatureSingleThread):
         raise Exception('Left blank')
 
     def feature_to_npy(self, chr_name, start, end):
-        with pbw.open(self.path) as bw_file:
-            signals = bw_file.values(chr_name, int(start), int(end))
-        return np.array(signals)
+        try:
+            with pbw.open(self.path) as bw_file:
+                signals = bw_file.values(chr_name, int(start), int(end))
+                if signals is None:
+                    print(f"Warning: No data found for {chr_name}:{start}-{end} in {self.path}")
+                    return np.zeros(end - start)
+                return np.array(signals)
+        except Exception as e:
+            print(f"Error reading {self.path} for {chr_name}:{start}-{end}: {str(e)}")
+            return np.zeros(end - start)
 
     def length(self, chr_name):
-        with pbw.open(self.path) as bw_file:
-            length = bw_file.chroms(chr_name)
-        return length
+        try:
+            with pbw.open(self.path) as bw_file:
+                length = bw_file.chroms(chr_name)
+                if length is None:
+                    print(f"Warning: No length information for {chr_name} in {self.path}")
+                    return 0
+                return length
+        except Exception as e:
+            print(f"Error getting length for {chr_name} from {self.path}: {str(e)}")
+            return 0
 
 class SequenceFeature(Feature):
 

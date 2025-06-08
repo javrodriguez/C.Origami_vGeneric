@@ -131,7 +131,8 @@ corigami-train [options]
    pip install .
    ```
 
-4. Singularity installation:
+#### Usage with Singularity (no installation required)
+
    Alternatively, C.Origami can be used without need for installation by using a singularity image.
    We provide images for maxATAC, C.Origami and C.Origami dependencies (useful when working with a dev version of C.Origami).
    All of those are available at https://doi.org/10.5281/zenodo.15604832.

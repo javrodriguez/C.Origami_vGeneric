@@ -137,3 +137,7 @@ corigami-train [options]
    We provide images for maxATAC, C.Origami and C.Origami dependencies (useful when working with a dev version of C.Origami).
    All of those are available at https://doi.org/10.5281/zenodo.15604832.
    Check the ./singularity directory for example usage scripts and the .def files used to generate those images.
+
+## License
+
+The upstream [C.Origami](https://github.com/tanjimin/C.Origami) repository does not currently carry an explicit open-source license, so this modified version cannot grant one either — rights to the original implementation remain with its authors. The modifications here are published for research transparency; for reuse of the underlying code, please contact the C.Origami authors. This section will be updated if upstream adopts a license.

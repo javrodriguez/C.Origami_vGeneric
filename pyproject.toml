@@ -8,10 +8,10 @@ version = "0.1.0"
 description = "C.Origami: A deep learning model for predicting chromatin organization"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [
-    {name = "Javier Rodriguez", email = "javrodriguez@stanford.edu"}
-]
+authors = [{ name = 'Jimin Tan', email = 'tanjimin@nyu.edu' },
+           { name = 'Nina Shenker-Tauris', email = 'shenkn01@nyu.edu' }]
+maintainers = [{ name = 'Jimin Tan', email = 'tanjimin@nyu.edu' },
+               { name = 'Nina Shenker-Tauris', email = 'shenkn01@nyu.edu' }]
 dependencies = [
     "torch>=1.12.0",
     "torchvision>=0.13.0",
